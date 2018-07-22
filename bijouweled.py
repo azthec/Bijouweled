@@ -23,6 +23,7 @@ def selected_colour():
 
 
 def update():
+    global SCORE
     DISPLAY.fill(colour_map[WHITE])
     for i in range(0, 10):
         for j in range(0, 10):
@@ -30,11 +31,67 @@ def update():
             pygame.draw.rect(DISPLAY, colour_map[game_table[i][j]], rectangle)
     selected_rectangle = pygame.Rect(selectedX*WIDTH_STEP, selectedY*HEIGHT_STEP, WIDTH_STEP, HEIGHT_STEP)
     pygame.draw.rect(DISPLAY, selected_colour(), selected_rectangle, 4)
+
+    text = BASICFONT.render(str(SCORE), 1, (255, 165, 0))
+    textpos = text.get_rect(centerx=DISPLAY.get_width()/2)
+    DISPLAY.blit(text, textpos)
+
     pygame.display.flip()
     FPSCLOCK.tick(FPS)
 
 
-FPS = 60
+def evaluate(SCORE):
+    while True:
+        score, recheck = update_table()
+        SCORE += score
+        update()
+        if not recheck:
+            break
+    return SCORE
+
+def update_table():
+    retrace_list = []
+    score = 0
+    recheck = False
+    for i in range(0, ROWS):
+        matches = 0
+        for j in range(0, COLS):
+            # potentially unsafe but python should take the easy route out
+            if j >= COLS - 1 or game_table[i][j] != game_table[i][j+1]:
+                if matches >= 2:
+                    retrace_list.append( (i, j, 1, matches) )
+                    score += 2**matches
+                matches = 0
+            else:
+                matches += 1
+
+    for j in range(0, COLS):
+        matches = 0
+        for i in range(0, ROWS):
+            if i >= ROWS - 1 or game_table[i][j] != game_table[i+1][j]:
+                if matches >= 2:
+                    retrace_list.append( (i, j, 0, matches) )
+                    score += 2**matches
+                matches = 0
+            else:
+                matches += 1
+
+    if retrace_list:
+        recheck = True
+    for elem in retrace_list:
+        retrace(*elem)
+
+    return score, recheck
+
+
+def retrace(i, j, axis, matches):
+    for k in range(-matches, 0+1):
+        if axis:
+            game_table[i][j+k] = np.random.choice(colours)
+        else:
+            game_table[i+k][j] = np.random.choice(colours)
+
+FPS = 30
 
 BLACK = 0
 WHITE = 1
@@ -50,6 +107,7 @@ WIDTH_STEP = int(WIDTH/10)
 HEIGHT = 600
 HEIGHT_STEP = int(HEIGHT/10)
 
+SCORE = 0
 
 UP = pygame.K_UP
 DOWN = pygame.K_DOWN
@@ -84,6 +142,7 @@ update()
 
 done = False
 while not done:
+    SCORE = evaluate(SCORE)
     # register user event
     event = pygame.event.wait()
     # exit
@@ -96,30 +155,33 @@ while not done:
             selected = not(selected)
         elif key == UP:
             if selectedY - 1 >= 0:
+                SCORE -= 1
                 if selected:
                     game_table[selectedX, selectedY], game_table[selectedX, selectedY - 1] = game_table[selectedX, selectedY - 1], game_table[selectedX, selectedY],
                     selected = False
                 selectedY -= 1
         elif key == DOWN:
             if selectedY < 9:
+                SCORE -= 1
                 if selected:
                     game_table[selectedX, selectedY], game_table[selectedX, selectedY + 1] = game_table[selectedX, selectedY + 1], game_table[selectedX, selectedY],
                     selected = False
                 selectedY += 1
         elif key == LEFT:
             if selectedX - 1 >= 0:
+                SCORE -= 1
                 if selected:
                     game_table[selectedX, selectedY], game_table[selectedX - 1, selectedY] = game_table[selectedX - 1, selectedY], game_table[selectedX, selectedY],
                     selected = False
                 selectedX -= 1
         elif key == RIGHT:
             if selectedX < 9:
+                SCORE -= 1
                 if selected:
                     game_table[selectedX, selectedY], game_table[selectedX + 1, selectedY] = game_table[selectedX + 1, selectedY], game_table[selectedX, selectedY],
                     selected = False
                 selectedX += 1
 
         update()
-
 
 pygame.quit()
